@@ -8,6 +8,9 @@
 		  config.app = require( './config/app.js' );
 		  config.database = require( './config/database.js' )[config.app.env];
 
+	// Models
+	const ViewInspection = require( _directory_base + '/app/v1.0/Http/Models/ViewInspectionModel.js' );
+
 /*
 |--------------------------------------------------------------------------
 | APP Setup
@@ -21,6 +24,89 @@
 
 	// Primary Variable
 	const app = express();
+	var data_source_request = {
+		"auth":false,
+		"finding":false
+	}
+	var kafka = require("kafka-node"),
+	Producer = kafka.Producer,
+	Consumer = kafka.Consumer,
+	client = new kafka.KafkaClient({kafkaHost : "149.129.252.13:9092"}),
+	producer = new Producer(client),    
+	consumer = new Consumer(
+        client,
+        [
+            { topic: 'kafkaRequestData', partition: 0 },{ topic: 'kafkaDataCollectionProgress', partition: 0 },{ topic: 'kafkaResponse', partition: 0 }
+        ],
+        {
+            autoCommit: false
+        }
+    );
+	consumer.on('message', function (message) {
+		json_message = JSON.parse(message.value);
+		if(message.topic=="kafkaRequestData"){
+			//ada yang request data ke microservices
+			let reqDataObj;
+			let responseData = false;
+			if(json_message.msa_name=="inspection"){
+				 if( json_message.agg  ){
+					const matchJSON = JSON.parse( json_message.agg );
+					console.log( "matchJSON", matchJSON );
+					const set = ViewInspection.aggregate( [	
+						matchJSON
+					] )
+					reqDataObj = {
+						"msa_name":json_message.msa_name,
+						"model_name":json_message.model_name,
+						"requester":json_message.requester,
+						"request_id":json_message.request_id,
+						"data": set
+					}
+					responseData = true;
+				 }
+				 
+			}
+			if( responseData ){
+				let payloads = [
+					{ topic: "kafkaResponseData", messages: JSON.stringify( reqDataObj ), partition: 0 }
+				];
+				producer.send( payloads, function( err, data ){
+					console.log( "Send data to kafka", data );
+				} );
+			}
+		}
+	});
+
+	// let count = 0;
+	// let reqObj = {
+	// 	"data_source":[{
+	// 		"msa_name":"auth",
+	// 		"model_name":"UserAuth"
+	// 	},{
+	// 		"msa_name":"inspection",
+	// 		"model_name":"InspectionModel"
+	// 	}],
+	// 	"query":"SELECT DISTINCT a.INSPECTION_CODE,a.CREATOR,b.NAME CREATOR_NAME FROM inspection_InspectionModel a LEFT JOIN auth_UserAuth b ON a.CREATOR=b.CREATOR",
+	// 	"requester":"inspection",
+	// 	"request_id":2
+	// }
+
+	// producer.on("ready", function() {
+	// 	//console.log(JSON.stringify(reqObj));
+	// 	//setInterval(function() {
+	// 		//minta data
+	// 		payloads = [
+	// 			{ topic: "kafkaRequest", messages: JSON.stringify(reqObj), partition: 0 }
+	// 		];
+	// 		producer.send( payloads, function( err, data ) {
+	// 			console.log( "Send to kafka request data" );
+	// 		});
+	// 	//}, 2000);
+	// });
+
+	// producer.on("error", function(err) {
+	// 	console.log( err );
+	// });
 
 /*
 |--------------------------------------------------------------------------
