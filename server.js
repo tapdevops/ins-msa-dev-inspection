@@ -41,8 +41,9 @@
         {
             autoCommit: false
         }
-    );
-	consumer.on('message', function (message) {
+	);
+	consumer.on('message', async function (message) {
+		console.log( "MESSAGENYA", message );
 		json_message = JSON.parse(message.value);
 		if(message.topic=="kafkaRequestData"){
 			//ada yang request data ke microservices
@@ -52,7 +53,7 @@
 				 if( json_message.agg  ){
 					const matchJSON = JSON.parse( json_message.agg );
 					console.log( "matchJSON", matchJSON );
-					const set = ViewInspection.aggregate( [	
+					const set = await ViewInspection.aggregate( [	
 						matchJSON
 					] )
 					reqDataObj = {
@@ -63,8 +64,24 @@
 						"data": set
 					}
 					responseData = true;
+				 }else{
+					const set = await ViewInspection.aggregate( [
+						{
+							"$project": {
+								"id": 0
+							}
+						}	
+					] );
+					console.log( "SET: ", set );
+					reqDataObj = {
+						"msa_name":json_message.msa_name,
+						"model_name":json_message.model_name,
+						"requester":json_message.requester,
+						"request_id":json_message.request_id,
+						"data": set
+					}
+					responseData = true;
 				 }
-				 
 			}
 			if( responseData ){
 				let payloads = [
