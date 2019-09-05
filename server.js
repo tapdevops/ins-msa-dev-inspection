@@ -43,7 +43,7 @@
         }
 	);
 	consumer.on('message', async function (message) {
-		console.log( "MESSAGENYA", message );
+		// console.log( "MESSAGENYA", message );
 		json_message = JSON.parse(message.value);
 		if(message.topic=="kafkaRequestData"){
 			//ada yang request data ke microservices
@@ -52,7 +52,7 @@
 			if(json_message.msa_name=="inspection"){
 				 if( json_message.agg  ){
 					const matchJSON = JSON.parse( json_message.agg );
-					console.log( "matchJSON", matchJSON );
+					// console.log( "matchJSON", matchJSON );
 					const set = await ViewInspection.aggregate( [	
 						matchJSON
 					] )
@@ -72,7 +72,6 @@
 							}
 						}	
 					] );
-					console.log( "SET: ", set );
 					reqDataObj = {
 						"msa_name":json_message.msa_name,
 						"model_name":json_message.model_name,
